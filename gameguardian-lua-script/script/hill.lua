@@ -1,100 +1,89 @@
 
 --========================================
--- HILL CLIMB RACING - GAMEGUARDIAN
--- Version: 1.0
--- Environment: LDPlayer 9 / Android 9
+-- HCR COIN SCANNER
+-- Hill Climb Racing 1.73.2
 --========================================
 
-local SCRIPT_NAME = "HCR SCRIPT"
-local SCRIPT_VERSION = "1.0"
+local SCRIPT_NAME = "HCR COIN SCANNER"
 
---========================================
--- CHECK TARGET GAME
---========================================
+local function scanCoin()
 
-local function checkTarget()
+    local input = gg.prompt({
+        "Nhập số Coin hiện tại:"
+    }, {
+        "1000"
+    }, {
+        "number"
+    })
 
-    local info = gg.getTargetInfo()
-    local package = gg.getTargetPackage()
-
-    if not info or not package then
-        gg.alert("Không thể lấy thông tin game!")
+    if not input then
         return
     end
 
-    local message = {
-        "SCRIPT: " .. SCRIPT_NAME,
-        "VERSION: " .. SCRIPT_VERSION,
-        "",
-        "GAME: " .. tostring(info.label),
-        "PACKAGE: " .. tostring(package),
-        "GAME VERSION: " .. tostring(info.versionName),
-        "",
-        "ANDROID: 9",
-        "EMULATOR: LDPlayer 9"
-    }
+    local coin = tonumber(input[1])
 
-    gg.alert(table.concat(message, "\n"))
-end
+    if not coin or coin < 0 then
+        gg.alert("Giá trị Coin không hợp lệ!")
+        return
+    end
 
---========================================
--- ABOUT
---========================================
+    local results = {}
 
-local function about()
+    gg.setRanges(gg.REGION_ANONYMOUS)
+
+    -- Test DWORD
+    gg.clearResults()
+    gg.searchNumber(
+        tostring(coin),
+        gg.TYPE_DWORD
+    )
+
+    results.DWORD = gg.getResultsCount()
+
+    gg.clearResults()
+
+    -- Test FLOAT
+    gg.searchNumber(
+        tostring(coin),
+        gg.TYPE_FLOAT
+    )
+
+    results.FLOAT = gg.getResultsCount()
+
+    gg.clearResults()
 
     gg.alert(
-        SCRIPT_NAME .. "\n" ..
-        "Version: " .. SCRIPT_VERSION .. "\n\n" ..
-        "Platform: GameGuardian\n" ..
-        "Emulator: LDPlayer 9\n" ..
-        "Status: Development"
+        "COIN SCAN RESULT\n\n" ..
+        "Current Coin: " .. coin .. "\n\n" ..
+        "DWORD: " .. results.DWORD .. "\n" ..
+        "FLOAT: " .. results.FLOAT .. "\n\n" ..
+        "No memory values modified."
     )
 
 end
-
---========================================
--- MAIN MENU
---========================================
 
 local function mainMenu()
 
     while true do
 
         local choice = gg.choice({
-            "1. CHECK GAME INFORMATION",
-            "2. SCRIPT INFORMATION",
-            "3. EXIT"
+            "1. SCAN COIN",
+            "2. EXIT"
         }, nil, SCRIPT_NAME)
 
         if choice == nil then
-
-            gg.toast("Waiting for selection...")
+            return
 
         elseif choice == 1 then
-
-            checkTarget()
+            scanCoin()
 
         elseif choice == 2 then
-
-            about()
-
-        elseif choice == 3 then
-
-            gg.toast("Script closed!")
             os.exit()
-
         end
 
     end
 
 end
 
---========================================
--- START
---========================================
-
 gg.clearResults()
-gg.toast("Loading " .. SCRIPT_NAME)
-
 mainMenu()
