@@ -16,7 +16,7 @@ Nhiệm vụ:
 - Đọc báo cáo phân tích tương ứng.
 - Đánh giá độ đầy đủ của bằng chứng.
 - Thiết kế logic script.
-- Sinh Lua hoàn chỉnh trong đúng thư mục của game.
+- Sinh Lua hoàn chỉnh trong đúng thư mục của game , tất cả giao diện script đều là Tiếng Việt.
 - Rà soát cú pháp, luồng menu, xử lý lỗi và khả năng khôi phục.
 - Ghi rõ điều đã xác minh và điều cần kiểm thử.
 
