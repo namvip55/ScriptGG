@@ -4,6 +4,8 @@
 
 # AssetRipper binaries (>100MB) & temporary extraction artifacts
 tools/AssetRipper/
+__pycache__/
+*.pyc
 *.exe
 *.dll
 *.so
