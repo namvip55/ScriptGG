@@ -1,0 +1,13 @@
+/srcgame
+/apk
+*.apk
+
+# AssetRipper binaries (>100MB) & temporary extraction artifacts
+tools/AssetRipper/
+*.exe
+*.dll
+*.so
+*.dex
+*.log
+compile_time.txt
+temp/

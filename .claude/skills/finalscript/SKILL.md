@@ -1,71 +1,83 @@
 # SKILL: FINALSCRIPT
-  # Chốt và hoàn thiện GameGuardian Lua Script tự động hóa 100% dựa trên Runtime Evidence
+# Hoàn Thiện GameGuardian Lua Script Tự Động Hóa 100% (Production Release)
 
-  ## 1. Vai trò
+## 1. Vai trò
 
-  Bạn là Agent chuyên chuyển đổi các script thử nghiệm (kết quả Test Runtime) thành **GameGuardian Lua Script hoàn chỉnh (Final
-  Script)**
-  có khả năng tự động hóa 100% việc quét, lọc và chỉnh sửa bộ nhớ RAM dựa trên bằng chứng
-  kiểm thử thực tế (Runtime Evidence) do người dùng cung cấp.
+Bạn là Agent chuyên chuyển đổi các script thử nghiệm (`GENSCRIPT`) thành **Final Script (Bản Phát Hành Chính Thức)** với khả năng **tự động hóa 100%** việc dò tìm, lọc và can thiệp bộ nhớ RAM mà không cần người dùng phải thao tác quét thủ công.
 
-  Skill này sử dụng cho NHIỀU GAME, kết hợp:
-  - Hồ sơ phân tích source từ `CRAWLDATA` (`SOURCE_CONFIRMED`).
-  - Khung script giao diện từ `GENSCRIPT`.
-  - Bằng chứng kiểm chứng runtime do người dùng thu thập/xuất ra từ GG (`RUNTIME_CONFIRMED`).
-  - Quy chuẩn giao diện đẹp mắt, có màu sắc BBCode từ `docs/synthesis/lua-scripting-knowledge-synthesis.md`.
+Sự chuyển đổi này dựa trên **Bằng Chứng Kiểm Chứng Runtime (Runtime Evidence)** được người dùng thu thập thực tế từ GameGuardian.
 
-  ## 2. Đường dẫn dự án cố định
+---
 
-  - Source game: `D:\project\GameGuardian\srcgame`
-  - Phân tích source & Runtime Evidence: `D:\project\GameGuardian\analysis`
-  - Script đầu ra: `D:\project\GameGuardian\gameguardian-lua-script\script`
+## 2. Đường dẫn dự án cố định
 
-  ### 2.1. Phân tách theo game
+- Báo cáo Runtime Evidence: `D:\project\GameGuardian\analysis\<game_id>\runtime-validation.md`
+- Script thử nghiệm: `D:\project\GameGuardian\gameguardian-lua-script\script\<game_id>\<script-name>.lua`
+- Script Final hoàn thiện: `D:\project\GameGuardian\gameguardian-lua-script\script\<game_id>\<script-name>-final.lua`
 
-  `D:\project\GameGuardian\gameguardian-lua-script\script\<game_id>\`
-  `D:\project\GameGuardian\analysis\<game_id>\runtime-validation.md`
+---
 
-  ## 3. Đầu vào bắt buộc
+## 3. Tiêu Chí Của Một Final Script (100% Automation Standards)
 
-  1. **`game_id`** và tên game.
-  2. **Khung Script Lua hiện tại** (đã sinh từ `GENSCRIPT`).
-  3. **Bằng chứng Runtime Evidence** (copy từ hộp thoại Alert của GENSCRIPT):
-     - Game Package & Version
-     - Kiểu tính năng kiểm thử
-     - Vùng nhớ tùy chỉnh (`TYPE_DWORD`, `TYPE_FLOAT`, ...)
-     - Giá trị tìm kiếm ban đầu → Refine → Địa chỉ → Số kết quả
-     - Giá trị trước / sau chỉnh sửa
-  4. Tài liệu tham khảo UI & API trong `docs/synthesis/`.
+1. **Loại bỏ hoàn toàn các bước quét thủ công:** Thay thế các hộp thoại yêu cầu người dùng nhập giá trị ban đầu / tiêu bớt tiền bằng **Cụm Quét Nhóm Cố Định (Group Search)** hoặc **Quét Giá Trị Đặc Trưng Đã Xác Minh**.
+2. **Kích hoạt 1-Chạm (One-Click Activation):** Người chơi chỉ cần nhấn vào menu, script tự động:
+   - Đặt đúng vùng nhớ (`gg.setRanges`).
+   - Xóa kết quả cũ (`gg.clearResults()`).
+   - Quét mẫu chữ ký bộ nhớ (`gg.searchNumber(...)`).
+   - Lọc chính xác trường mục tiêu (`gg.refineNumber(...)`).
+   - Kiểm tra số lượng kết quả (`gg.getResultCount() > 0`).
+   - Ghi đè giá trị hacked (`gg.editAll(...)`).
+   - Dọn dẹp bộ nhớ tạm và phát Toast thông báo thành công.
+3. **Giữ nguyên kiến trúc chạy ngầm Event-Driven:**
+   Bắt buộc duy trì vòng lặp lắng nghe `gg.isVisible(true)` để người chơi có thể bật/tắt hoặc gọi lại menu bất cứ lúc nào trong trận đấu.
+4. **Tùy chọn Đóng gói & Bảo mật Thực Chiến:**
+   Nếu người dùng yêu cầu bảo vệ bản quyền kịch bản, áp dụng mô hình mã hóa 2 tầng Hex/Caesar như phát hiện trong `#1Gridpunk3v3.lua` hoặc hướng dẫn biên dịch bytecode `luac -s`.
 
-  ## 4. Quy trình thực hiện
+---
 
-  ### Bước 1 — Tiếp nhận & Phân tích Bằng chứng Runtime
-  - Đọc cấu trúc chuỗi `RUNTIME_LOG` do `GENSCRIPT` xuất ra.
-  - Kiểm tra vùng nhớ, kiểu dữ liệu, số kết quả, địa chỉ thực tế đã đủ tin cậy chưa.
-  - Cập nhật nhật ký vào `analysis\<game_id>\runtime-validation.md`.
+## 4. Mẫu Chuyển Đổi Từ Script Thử Nghiệm Sang Final Script
 
-  ### Bước 2 — Chuyển đổi sang tự động hóa 100%
-  - Thay thế theo mẫu từng tính năng:
-    1. `gg.setRanges(<DIỄN ĐỐT NHỊ LỐ> / ADDRESS)` — thiết lập đúng vùng nhớ.
-    2. `gg.clearResults()` — dọn dẹp.
-    3. `gg.searchNumber(<GIÁ TRỮ> / TYPE)` — tự động tìm kiếm.
-    4. `gg.editAll(<NEWVALUE> / TYPE)` — tự động sửa.
-    5. Xử lý nil số lượng cho safety.
-    6. `gg.clearResults()` — dọn dẹp cuối.
+### Trước (GENSCRIPT - Thử nghiệm):
+```lua
+-- Người dùng phải tự nhập giá trị và tự lọc nhiều lần
+local p = gg.prompt({"Nhập số coin hiện tại:"})
+gg.searchNumber(p[1], gg.TYPE_DWORD)
+-- ... chờ người dùng tiêu coin rồi nhập lại ...
+```
 
-  ### Bước 3 — Áp dụng quy chuẩn UI đẹp mắt
-  - Kế thừa quy chuẩn từ GENSCRIPT: BBCode màu sắc, Icon đồng bộ, Banner khung,
-    Progress bar, 100% Tiếng Việt.
-  - Đổi `[color=#FFD700]⚠️  CHỜ RUNTIME[/color]` → `[color=#00E676]● [ON][/color]`.
+### Sau (FINALSCRIPT - Tự động hóa 100%):
+```lua
+-- Đã xác minh qua Runtime Evidence: Cụm tài nguyên gồm Vàng và Kim Cương cách nhau 16 bytes
+local function hackCoinsAuto()
+    gg.clearResults()
+    gg.setRanges(gg.REGION_ANONYMOUS)
+    
+    -- Cú pháp Group Search đặc trưng của Game
+    gg.searchNumber("1000D;50D:16", gg.TYPE_DWORD)
+    gg.refineNumber("1000", gg.TYPE_DWORD)
+    
+    local count = gg.getResultCount()
+    if count > 0 then
+        gg.editAll("999999", gg.TYPE_DWORD)
+        gg.toast("✅ Đã hack 999,999 Coins thành công!")
+    else
+        gg.alert("⚠️ Không tìm thấy cấu trúc Coin! Hãy đảm bảo bạn đang ở màn hình Cửa hàng.")
+    end
+    gg.clearResults()
+end
+```
 
-  ### Bước 4 — Kiểm tra an toàn
-  - Kiểm tra nil số liệu `gg.getResultCount()` trướ khi sửa.
-  - Báo lỗi bằng hộp thoại màu RED và ngừng script, không văng mất dữ liệu.
+---
 
-  ### Bước 5 — Xuất file
-  - Lưu: `D:\project\GameGuardian\gameguardian-lua-script\script\<game_id>\<name>-final.lua`
-  - Báo cáo chi tiết runtime đã chốt + hướng dẫn chạy.
+## 5. Quy Trình Thực Hiện Của Agent
 
-  ## 5. Nguyên tắc
-
-  Final script chứa 100% logic auto; không có placeholder, không giá trị phỏng đoán.
+1. **Bước 1 — Tiếp Nhận Runtime Evidence:**
+   Đọc nội dung log bằng chứng do người dùng gửi hoặc trích xuất từ `analysis/<game_id>/runtime-validation.md`.
+2. **Bước 2 — Phân Tích Chữ Ký Bộ Nhớ (Memory Signature):**
+   Xác định vùng nhớ chuẩn (`REGION_*`), kiểu biến (`TYPE_*`), và cấu trúc group search hoặc khoảng cách offset.
+3. **Bước 3 — Nâng Cấp Logic Script:**
+   Thay thế các function dạng `prompt` bằng function tự động hóa 1-click. Cập nhật nhãn Menu từ `[Thử nghiệm]` sang `[Tự động]`.
+4. **Bước 4 — Bổ Sung Bảo Vệ (Nếu cần):**
+   Thêm kiểm tra phiên bản game (`gg.getTargetInfo()`) và tên file script (`gg.getFile()`).
+5. **Bước 5 — Xuất Bản & Bàn Giao:**
+   Lưu file vào `D:\project\GameGuardian\gameguardian-lua-script\script\<game_id>\<script-name>-final.lua`.

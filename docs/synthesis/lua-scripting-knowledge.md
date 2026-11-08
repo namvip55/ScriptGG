@@ -1,1033 +1,362 @@
-# GameGuardian Lua Scripting Knowledge Synthesis
+# GameGuardian Lua Scripting Comprehensive Knowledge Base
+## Cẩm nang Lập trình Script GameGuardian Thực Chiến & Phân Tích Cơ Chế Vận Hành
 
-Based on analysis of 3 GameGuardian script projects: `gameguardian-lua-script`, `GGLuaTemplate`, and `GG-Script-Collection`
-
----
-
-## Core Concepts
-
-### Memory Manipulation API
-
-**Search Functions:**
-- `gg.searchNumber(value, type)` - searches for specific values in memory
-  - `gg.TYPE_DWORD`: 32-bit integers (whole numbers)
-  - `gg.TYPE_FLOAT`: floating-point decimals
-  - `gg.TYPE_BYTE`: single bytes
-  - `gg.TYPE_WORD`: 16-bit values
-
-**Edit Functions:**
-- `gg.editAll(new_value, type)` - modifies found memory values
-- `gg.clearResults()` - clears current search results
-
-**Alert Functions:**
-- `gg.alert(message)` - shows popup dialog
-- `gg.toast(message)` - shows temporary notification
-- `gg.prompt(fields)` - gets user input
-
-### Script Structure Patterns
-
-1. **Welcome Message**: `gg.alert("Welcome message")`
-2. **Menu Definition**: Table with string options
-3. **Choice Loop**: `gg.choice(menu, nil, "Prompt")` in while loop
-4. **Mod Functions**: Individual functions for each menu option
-5. **Protection Mechanisms**:
-   - Name protection: Check filename at runtime (`gg.getFile():match('[^/]+$')`)
-   - Version protection: Define expected game versions array
-
-### Common Script Patterns
-
-```lua
--- Search and modify example
-gg.clearResults()
-gg.searchNumber("999999", gg.TYPE_DWORD)
-local results = gg.getResults(20)
-gg.editAll("99999999", gg.TYPE_DWORD)
-gg.clearResults()
-gg.toast("✅ Operation completed!")
-```
-
-### File Organization
-
-- `/script`: Main master scripts (e.g., `_CPMGARAGEULTIMATE.lua`)
-- `/templates`: Script templates for beginners (`gg-template.lua`)
-- `/delta-script`: Specialized scripts
-- `/first-script`: Initial learning scripts
-
-### Key References
-
-- GameGuardian API: https://gameguardian.net/
-- Lua Documentation: https://www.lua.org/manual/5.1/
-- Template examples show practical patterns for:
-  - Number hacks (DWORD)
-  - Float value modifications
-  - Advanced flag-based searches
-  - User-input driven modifications
-
-## Implementation Guidelines
-
-1. **Start with Templates**: Use `gg-template.lua` as base structure
-2. **Modular Design**: Create separate functions for each functionality
-3. **Memory Safety**: Always clear results after operations
-4. **User Feedback**: Use toast notifications for completion status
-5. **Protection**: Implement name and version checks for production scripts
-6. **Testing**: Test each modification type (DWORD, FLOAT) independently
-
-## Common Functions Reference
-
-- `gg.searchNumber(value, type [, flag])` - search memory
-- `gg.editAll(value, type)` - modify found values
-- `gg.clearResults()` - reset search state
-- `gg.alert(message)` - show information dialog
-- `gg.toast(message)` - show temporary notification
-- `gg.prompt(fields)` - get user input
-- `gg.choice(list, [default], [prompt])` - show selection menu
-- `gg.getFile()` - get current script filename
-- `gg.sleep(milliseconds)` - pause execution
+Tài liệu được tổng hợp và nâng cấp toàn diện dựa trên:
+1. Phân tích các dự án mẫu: `gameguardian-lua-script`, `GGLuaTemplate`, `GG-Script-Collection`.
+2. Phân tích mã nguồn và dịch ngược thực tế từ các kịch bản thực chiến:
+   - `#1Gridpunk3v3.lua` (Gridpunk 3v3 Action Game Mod - 2 tầng mã hóa Hex/Caesar, cơ chế Overlay Hooking, Dynamic Input Range).
+   - `AmongCapV1.lua` (Among Us / Action Mod - Lua 5.2 Bytecode, Module Dispatching, Identifier Obfuscation).
+   - `script-cau-ca-van-can-vip-by-anya.lua` (Play Together VIP Fishing Script - LuaObfuscator VM, Memory Scanning Automation).
+   - `mindustry-rules-helper.lua` (Mindustry Arc Engine - Cầu nối Source Code Java Heap sang GameGuardian Memory Ranges).
 
 ---
 
-## Extended Knowledge: Advanced Patterns
+## 1. Cơ Chế Vận Hành Cốt Lõi Của GameGuardian Script (Runtime Architecture)
 
-This section is expanded based on analysis of all three projects.
+Khác với các chương trình Lua thông thường chạy tuần tự từ đầu đến cuối rồi dừng, một GameGuardian Lua Script hoàn chỉnh hoạt động như một **Overlay Daemon / Event-driven Service** chạy song song với game.
 
-### 1. Welcome/Loading Sequence Pattern
+### 1.1. Mô Hình "Overlay Icon Listener" Thực Chiến (Vòng Lặp Bắt Sự Kiện)
+Đây là kiến trúc chuẩn được sử dụng trong các script thực chiến như `#1Gridpunk3v3.lua`:
 
 ```lua
-gg.toast("Starting hook...")
-gg.sleep(2250)
+-- Biến cờ điều khiển trạng thái mở Menu
+local MENU_ACTIVE = 1
 
--- Welcome Phase
+-- Khởi tạo ban đầu
 gg.setVisible(false)
-gg.alert("RHQ Script Template", "「START」")
-gg.clearResults()
-gg.toast("\n□□□□□0%")
-gg.sleep(500)
-gg.toast("\n■□□□□20%")
-gg.sleep(500)
-gg.toast("\n■■□□□40%")
-gg.sleep(500)
-gg.toast("\n■■■□□60%")
-gg.sleep(500)
-gg.toast("\n■■■■□80%")
-gg.sleep(500)
-gg.toast("\n■■■■■100%")
-gg.sleep(500)
+gg.toast("Khởi chạy script thành công! Chạm vào icon GameGuardian để mở Menu.")
 
-gg.alert("Welcome to Script Template")
-
-local startAlert = gg.alert("Start script by clicking the GG Icon!", "OK")
-
-if startAlert == 1 then
-    gg.setVisible(false)
-    gg.processKill()
-    gg.sleep(500)
-    gg.toast("Starting Menu...")
-    gg.setVisible(true)
-    gg.sleep(500)
-end
-```
-
-### 2. Main Menu Loop (while true pattern)
-
-```lua
+-- Vòng lặp lắng nghe vô tận
 while true do
-    local menu = gg.choice({
-        "💰 Money Menu",
-        "🪙 Coin Menu",
-        "🛠 Suspension Menu",
-        "🏁 Race Menu",
-        "❌ Exit Script"
-    }, nil, "Main Menu")
-
-    if menu == nil then
-        gg.toast("🕐 Waiting...")
-        gg.sleep(1000)
-    elseif menu == 5 then
-        gg.toast("👋 Goodbye!")
-        os.exit()
-    elseif menu == 1 then
-        moneyMenu()
-    elseif menu == 2 then
-        coinMenu()
-    elseif menu == 3 then
-        suspensionMenu()
-    elseif menu == 4 then
-        raceMenu()
+    -- Kiểm tra nếu người dùng bấm vào icon GG nổi trên màn hình
+    if gg.isVisible(true) then
+        MENU_ACTIVE = 1
+        gg.setVisible(false) -- Ẩn bảng điều khiển gốc của GG để hiện menu tùy biến của script
     end
+
+    -- Khi cờ được kích hoạt, gọi Menu chính
+    if MENU_ACTIVE == 1 then
+        mainMenu()
+        MENU_ACTIVE = -1 -- Đặt lại cờ sau khi người dùng tương tác xong
+    end
+
+    -- Giữ nhịp vòng lặp, giải phóng CPU tránh đơ máy hoặc crash GG
+    gg.sleep(100)
 end
 ```
 
-### 3. Version/Update Protection
+**Nguyên lý hoạt động:**
+1. Script luôn chạy ngầm trong GameGuardian.
+2. `gg.isVisible(true)` trả về `true` khi người chơi chạm vào icon con chó nổi của GameGuardian trên màn hình game.
+3. Script ngay lập tức gọi `gg.setVisible(false)` để đóng cửa sổ mặc định của GG, thay vào đó hiển thị menu tương tác Lua (`gg.choice`, `gg.multiChoice` hoặc `gg.prompt`).
+4. Sau khi người chơi thực hiện xong một chức năng, menu kết thúc và script quay trở lại vòng lặp `while true` kèm `gg.sleep(100)` để tiết kiệm pin và tránh chiếm dụng 100% CPU thread.
+
+---
+
+## 2. Hệ Thống Giao Diện Người Dùng (UI Framework & Input Handling)
+
+GameGuardian hỗ trợ 4 hình thức tương tác người dùng chính: `gg.alert`, `gg.toast`, `gg.choice`, `gg.multiChoice`, và `gg.prompt`.
+
+### 2.1. Đơn Chọn: `gg.choice(items, default, title)`
+Dùng cho Menu điều hướng phân cấp (Main Menu -> Sub Menu).
 
 ```lua
-local scriptVersion = "4.9.4"
-local expectedGameVersions = {"4.9.4", "5.0.0"}  -- Support multiple versions
-
-function checkVersions()
-    local gameVersion = gg.getTargetInfo().versionName
-
-    local versionMatch = false
-    for _, v in ipairs(expectedGameVersions) do
-        if gameVersion == v then
-            versionMatch = true
-            break
+local function subMenuSpeed()
+    while true do
+        local options = {
+            "⚡ Tốc độ di chuyển x2",
+            "🚀 Tốc độ di chuyển x5",
+            "🔄 Khôi phục tốc độ gốc (1.0)",
+            "⬅️ Quay lại Menu chính"
+        }
+        local sel = gg.choice(options, nil, "[ CẤU HÌNH TỐC ĐỘ ]")
+        
+        -- Xử lý an toàn: Nếu người dùng bấm ra ngoài (Cancel) hoặc chọn nút Quay lại
+        if sel == nil or sel == 4 then
+            break -- Thoát vòng lặp submenu, quay lại menu trước
+        elseif sel == 1 then
+            applySpeed(2.0)
+        elseif sel == 2 then
+            applySpeed(5.0)
+        elseif sel == 3 then
+            applySpeed(1.0)
         end
     end
-
-    if not versionMatch then
-        gg.alert("This script requires game version " .. table.concat(expectedGameVersions, " or ") .. ". Current: " .. gameVersion)
-        print("DOWNLOAD NEW UPDATE")
-        os.exit()
-    end
-
-    if scriptVersion ~= "4.9.4" then
-        gg.alert("This script is outdated. Contact owner for renewal.")
-        os.exit()
-    end
-
-    return true
-end
-
--- Run version check before continuing
-if not checkVersions() then return end
-```
-
-### 4. Name Protection
-
-```lua
--- Check filename at runtime
-local filename = gg.getFile():match('[^/]+$')
-if filename ~= "_CPMGARAGEULTIMATE.lua" then
-    gg.alert("Please rename the script file correctly.")
-    os.exit()
 end
 ```
 
-### 5. Memory Regions (setRanges)
-
-| Region | Description |
-|---|---|
-| `gg.REGION_ANONYMOUS` | General anonymous memory (most common) |
-| `gg.REGION_CODE_APP` | App code region |
-| `gg.REGION_CODE_SYS` | System code region |
-| `gg.REGION_C_ALLOC` | C allocator memory |
-| `gg.REGION_C_BSS` | BSS segment |
-| `gg.REGION_VIDEO` | Video memory |
-| `gg.REGION_BAD` | Bad/invalid memory |
-
-**Combine regions with `|` (pipe):**
-```lua
-gg.setRanges(gg.REGION_CODE_APP | gg.REGION_CODE_SYS)
-gg.setRanges(gg.REGION_C_DATA | gg.REGION_CODE_APP)
-gg.setRanges(gg.REGION_VIDEO | gg.REGION_BAD)
-```
-
-### 6. Basic Search Patterns
-
-**DWORD Search:**
-```lua
-gg.setRanges(gg.REGION_ANONYMOUS)
-gg.searchNumber("5000", gg.TYPE_DWORD)
-gg.getResults(100)
-gg.editAll("9999", gg.TYPE_DWORD)
-gg.clearResults()
-```
-
-**Float Search:**
-```lua
-gg.setRanges(gg.REGION_ANONYMOUS)
-gg.searchNumber("1.25", gg.TYPE_FLOAT)
-gg.getResults(50)
-gg.editAll("2.50", gg.TYPE_FLOAT)
-gg.clearResults()
-```
-
-**Advanced Flag Search:**
-```lua
-gg.searchNumber("123456", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
--- Parameters: value, type, flag, sign, min, max, index
-```
-
-**Float with Mask:**
-```lua
-gg.searchNumber("1.0", gg.TYPE_FLOAT, false, gg.SIGN_EQUAL, 0, -1)
-```
-
-### 7. Progressive/Refined Search
+### 2.2. Đa Chọn: `gg.multiChoice(items, defaults, title)`
+Mô hình đặc trưng trong `#1Gridpunk3v3.lua`, cho phép người dùng bật/tắt nhiều chức năng cùng lúc trong 1 lần xác nhận:
 
 ```lua
--- Search for value, refine, search again
-gg.searchNumber("value", gg.TYPE_FLOAT)
-gg.getResults(10)
-gg.refineNumber("new_value", gg.TYPE_FLOAT)
-gg.searchNumber("new_value", gg.TYPE_FLOAT)
-gg.getResults(10)
-gg.editAll("final_value", gg.TYPE_FLOAT)
-```
-
-### 8. On/Off Toggle Pattern
-
-```lua
-local isOn = false
-
-function toggleFeature()
-    if isOn then
-        -- Disable: restore original values
-        gg.alert("Feature OFF")
-        isOn = false
-    else
-        -- Enable: search and modify
-        gg.searchNumber("value", gg.TYPE_FLOAT)
-        gg.editAll("new_value", gg.TYPE_FLOAT)
-        gg.toast("Feature ON ✅")
-        isOn = true
-    end
-end
-```
-
-### 9. Toggle with State Restoration
-
-```lua
-toggle_Y10 = false
-revert_Y10 = nil
-
-function toggleY10()
-    if toggle_Y10 then
-        -- Restore original values
-        if revert_Y10 then gg.setValues(revert_Y10) end
-        gg.toast("Y10 OFF❌")
-        toggle_Y10 = false
-    else
-        -- Save original, then modify
-        gg.clearResults()
-        gg.setRanges(gg.REGION_ANONYMOUS)
-        gg.searchNumber("0.40000000596F;5;0.10000000149F;1:13", gg.TYPE_FLOAT)
-        gg.refineNumber("5", gg.TYPE_FLOAT)
-        revert_Y10 = gg.getResults(9999)
-        gg.editAll("1999", gg.TYPE_FLOAT)
-        toggle_Y10 = true
-        gg.toast("Y10 ON✅")
-    end
-    waitForGG(maintenanceMenu)
-end
-```
-
-### 10. UI Display Toggles
-
-```lua
-on = "      ⃢🔵"
-off = " 🔴⃢  "
-
-local function menuWithToggle()
-    local menu = gg.choice({
-        "Feature " .. (isOn and off or on),
-        "❌ Back"
-    }, nil, "Feature Menu")
+local function batchHacksMenu()
+    local options = {
+        "❥ Vô hạn Đạn (No Reload)",
+        "❥ Không Giật (No Recoil)",
+        "❥ Nhảy Cao (High Jump)",
+        "❥ Bất Tử (God Mode)",
+        "❌ Thoát"
+    }
     
-    if menu == nil or menu == 2 then return mainMenu() end
-    toggleFeature()
-end
-```
-
-### 11. User Input Functions
-
-```lua
--- Simple prompt
-local input = gg.prompt({"Enter value"}, nil, {"number"})
-if input then
-    gg.editAll(input[1], gg.TYPE_DWORD)
-end
-
--- Choice menu
-local choice = gg.choice({
-    "Option A",
-    "Option B",
-    "Option C"
-}, nil, "Select Option")
-
--- Multi-choice
-local choices = gg.multiChoice({
-    "Option 1",
-    "Option 2",
-    "Option 3"
-})
-if choices then
-    -- choices is a table of booleans, one per option
-end
-
--- 8-field prompt (custom HP input pattern)
-local input = gg.prompt({
-    'Current HP:', 'New HP:',
-    'Current Torque:', 'New Torque:',
-    'Current Inner HP:', 'New Inner HP:',
-    'Current Inner Torque:', 'New Inner Torque:'
-}, {}, {'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'})
-```
-
-### 12. Menu Nesting Pattern
-
-```lua
-function currencyMenu()
-    while true do
-        local choice = gg.choice({
-            "💵 Money Menu",
-            "🪙 Coin Menu",
-            "❌ Back"
-        }, nil, "Currency Menu")
-
-        if choice == nil or choice == 3 then
-            return mainMenu()
-        end
-
-        if choice == 1 then moneyMenu() end
-        if choice == 2 then coinMenu() end
-    end
-end
-
-function suspensionMenu()
-    while true do
-        local choice = gg.choice({
-            "📏 Camber Menu",
-            "🛸 UFO Mode",
-            "🏎 Steering Angle",
-            "❌ Back to Main"
-        }, nil, "Suspension Menu")
-
-        if choice == nil or choice == 4 then
-            return mainMenu()
-        end
-
-        if choice == 1 then camberMenu() end
-        if choice == 2 then ufoMode() end
-        if choice == 3 then steeringAngleMenu() end
-    end
-end
-```
-
-### 13. UFO Mode Pattern
-
-```lua
-function ufoMode()
-    while true do
-        local choice = gg.choice({
-            "UFO Mode 1 👽",
-            "UFO Mode 2 👾",
-            "UFO Mode 3 🛸",
-            "❌ Back"
-        }, nil, "UFO Menu")
-
-        if choice == nil or choice == 4 then
-            return suspensionMenu()
-        end
-
-        local ufoValues = {-90, -120, -180}
-        applyUfoPreset(ufoValues[choice])
-    end
-end
-
-function applyUfoPreset(value)
-    -- Pre-search
-    gg.setRanges(gg.REGION_ANONYMOUS)
-    gg.searchNumber("-10", gg.TYPE_FLOAT)
-    gg.getResults(100)
-    gg.clearResults()
-    gg.sleep(1000)
-
-    -- User interaction sequence
-    gg.alert("Set Incline to 10")
-    gg.sleep(15000)
-    gg.setVisible(false)
-    gg.alert("Set Incline to 0")
-    gg.sleep(5000)
-    gg.alert("Set Incline to 10")
-    gg.sleep(5000)
-
-    -- Main search and edit
-    gg.toast("Applying UFO mode...")
-    gg.searchNumber("-10", gg.TYPE_FLOAT)
-    local results = gg.getResults(100)
-
-    if #results > 0 then
-        gg.editAll(tostring(value), gg.TYPE_FLOAT)
-        gg.toast("UFO mode applied!👽✅")
-    else
-        gg.alert("UFO values not found!")
-    end
-
-    gg.sleep(5000)
-    gg.clearResults()
-    gg.toast("Returning to suspension menu")
-    waitForGG(suspensionMenu)
-end
-```
-
-### 14. Custom Camber Pattern
-
-```lua
-function customCamber()
-    -- Pre-search step
-    gg.searchNumber("-10", gg.TYPE_FLOAT)
-    local results = gg.getResults(100)
-
-    if #results > 0 then
-        gg.editAll("-10", gg.TYPE_FLOAT)
-        gg.clearResults()
-    else
-        gg.toast("❌ Pre-search failed!")
+    -- defaults có thể truyền table boolean hoặc nil
+    local sel = gg.multiChoice(options, nil, "Gridpunk 3V3 - Chọn tính năng kích hoạt")
+    
+    if sel == nil then
+        gg.toast("Đã hủy lựa chọn.")
         return
     end
 
-    -- Prompt for custom value
-    local input = gg.prompt({"Enter Custom Camber"}, {nil}, {"number"})
-    if input and input[1] then
-        local value = input[1]
+    if sel[5] then return end -- Nút thoát
 
-        -- Main sequence
-        gg.alert("Set Incline to 10")
-        gg.sleep(15000)
-        gg.setVisible(false)
-        gg.alert("Set Incline to 0")
-        gg.sleep(5000)
-        gg.alert("Set Incline to 10")
-        gg.sleep(5000)
-
-        gg.searchNumber("-10", gg.TYPE_FLOAT)
-        local results = gg.getResults(100)
-
-        if #results > 0 then
-            gg.editAll(tostring(value), gg.TYPE_FLOAT)
-            gg.toast("Camber adjusted to " .. value .. " ✅")
-            gg.sleep(5000)
-            gg.clearResults()
-            gg.toast("Returning to menu...")
-            waitForGG(suspensionMenu)
-        end
-    end
+    -- Xử lý tuần tự từng lựa chọn được đánh dấu
+    if sel[1] then setNoReload() end
+    if sel[2] then setNoRecoil() end
+    if sel[3] then setHighJump() end
+    if sel[4] then setGodMode() end
 end
 ```
 
-### 15. Glitch Speed Pattern
+### 2.3. Hộp Thoại Nhập Liệu Động: `gg.prompt(fields, defaults, types)`
+Dùng khi giá trị bộ nhớ thay đổi linh hoạt theo từng người chơi hoặc cần can thiệp thông số tùy ý:
 
 ```lua
-off = " 🔴⃢  "
-on = "      ⃢🔵"
-GLITCH1 = off
-GLITCH2 = off
-GLITCH3 = off
-GLITCH4 = off
--- ... up to GLITCH10
+-- Mẫu nhập 2 trường: Giá trị hiện tại và Giá trị mong muốn
+local p = gg.prompt(
+    { "Nhập lượng Coin hiện tại:", "Nhập lượng Coin mong muốn:" },
+    { "1000", "999999" },
+    { "number", "number" }
+)
 
-function glitchSpeed()
-    local choice = gg.choice({
-        "⚡️ Glitch 1125hp" .. GLITCH1,
-        "⚡️ Glitch 2000hp" .. GLITCH2,
-        "⚡️ Glitch 1195hp" .. GLITCH3,
-        "⚡️ Glitch 1234hp" .. GLITCH4,
-        "⚡️ Glitch 11000hp" .. GLITCH5,
-        "⚡️ Glitch 999hp" .. GLITCH6,
-        "⚡️ Glitch 800hp" .. GLITCH7,
-        "⚡️ Glitch 414hp" .. GLITCH8,
-        "⚡️ Glitch 300hp" .. GLITCH9,
-        "⚡️ Glitch 250hp" .. GLITCH10,
-        "❌ Back to HP Menu"
-    }, nil, "Glitch Speed Menu")
-
-    if choice == nil or choice == 11 then
-        gg.toast("Returning to HP menu")
-        return hpMenu()
-    end
-
-    -- Toggle logic: each choice toggles its own state
-    if choice == 1 then
-        if GLITCH1 == on then
-            GL1()  -- disable
-            GLITCH1 = off
-        else
-            GL2()  -- enable first level
-            GLITCH1 = on
-        end
-    elseif choice == 2 then
-        if GLITCH2 == on then
-            GL3()
-            GLITCH2 = off
-        else
-            GL4()
-            GLITCH2 = on
-        end
-    end
-    -- ... etc for choices 3-10
-
-    gg.toast("Returning to glitch menu")
-    waitForGG(glitchSpeed)
+-- BẮT BUỘC kiểm tra nil khi người dùng bấm HỦY (Cancel)
+if not p then
+    gg.toast("Đã hủy thao tác.")
+    return
 end
+
+local currentVal = tonumber(p[1])
+local targetVal = tonumber(p[2])
 ```
 
-### 16. HP Presets Pattern
+---
+
+## 3. Bản Đồ Vùng Nhớ (Memory Regions Mapping) & Engine Architecture
+
+Chọn đúng vùng nhớ (`gg.setRanges`) quyết định 90% tốc độ tìm kiếm và sự thành công của script.
+
+| Vùng nhớ trong GG | Ký hiệu API | Ý nghĩa & Ứng dụng thực tế |
+|---|---|---|
+| **Anonymous** | `gg.REGION_ANONYMOUS` | Bộ nhớ cấp phát động qua `mmap(MAP_ANONYMOUS)`. Chứa hầu hết dữ liệu người chơi, biến số game Unity/Unreal/Native. Đây là vùng phổ biến nhất. |
+| **Java Heap** | `gg.REGION_JAVA_HEAP` | Vùng heap của máy ảo Dalvik/ART. Bắt buộc dùng cho game Java thuần (như Mindustry) hoặc biến đối tượng Java Android. |
+| **C++ Heap / Alloc** | `gg.REGION_C_ALLOC` | Vùng nhớ `malloc/calloc` của thư viện C/C++. Thường chứa object của game engine C++ (Cocos2d, Unreal Engine). |
+| **C++ BSS / Data** | `gg.REGION_C_DATA \| gg.REGION_C_BSS` | Biến toàn cục tĩnh (static variables, global tables). |
+| **App Code** | `gg.REGION_CODE_APP` | Mã máy nhị phân (.so, DEX). Dùng khi patch opcode (ARM/ARM64 Assembly NOP patching). |
+| **Video** | `gg.REGION_VIDEO` | Bộ nhớ đồ họa/Vulkan/OpenGL textures và buffers. |
+| **Bad** | `gg.REGION_BAD` | Vùng nhớ ảo tùy biến hoặc memory ngoài luồng. |
+
+### 3.1. Kết hợp vùng nhớ theo từng Engine
+- **Unity (IL2CPP / Mono):**
+  ```lua
+  gg.setRanges(gg.REGION_ANONYMOUS | gg.REGION_C_ALLOC)
+  ```
+- **Android Java thuần (Mindustry, LibGDX):**
+  ```lua
+  gg.setRanges(gg.REGION_ANONYMOUS | gg.REGION_JAVA_HEAP | gg.REGION_C_HEAP)
+  ```
+- **Unreal Engine / Native Game:**
+  ```lua
+  gg.setRanges(gg.REGION_ANONYMOUS | gg.REGION_C_ALLOC | gg.REGION_C_DATA)
+  ```
+
+---
+
+## 4. Các Chiến Lược Thao Tác Bộ Nhớ Thực Chiến (Memory Manipulation Patterns)
+
+### 4.1. Quét Cụm Giá Trị Liền Kề (Group Search)
+Khi giá trị mục tiêu (như Số vàng) dễ bị trùng lặp với hàng triệu giá trị khác trong RAM, hãy quét kèm theo các thuộc tính lân cận của cấu trúc dữ liệu:
 
 ```lua
-local hpPresets = {
-    -- Positive values: {HP, Torque, Inner HP, Inner Torque}
-    {2400, 2300, 8000, 7998},
-    {2300, 2300, 8000, 7998},
-    {2299, 2300, 8000, 7998},
-    {2250, 2300, 8000, 7998},
-    -- ... more positive presets down to small values
-    {0.1, 2300, 8000, 7998},
-    {0.01, 2300, 8000, 7998},
-    {0.001, 2300, 8000, 7998},
-    -- Negative values
-    {-0.1, 2300, 8000, 7998},
-    {-1, 2300, 8000, 7998},
-    {-5000000, 2300, 8000, 7998},
-    -- ... more negative presets down to -9999999
-}
+-- Cú pháp: "GiáTrị1;GiáTrị2;GiáTrị3:KhoảngCáchTốiĐaByte"
+-- Ví dụ: Tìm cấu trúc Player gồm Máu (100.0F), Giáp (50.0F), Tốc độ (1.5F) nằm cách nhau không quá 32 byte
+gg.clearResults()
+gg.setRanges(gg.REGION_ANONYMOUS)
+gg.searchNumber("100.0F;50.0F;1.5F:32", gg.TYPE_FLOAT)
 
-function hpPresetsMenu()
-    local menuOptions = {}
-    for i, preset in ipairs(hpPresets) do
-        table.insert(menuOptions, tostring(preset[1]) .. "HP🚀")
-    end
-    table.insert(menuOptions, "❌ Back")
-
-    local choice = gg.choice(menuOptions, nil, "HP Presets Menu")
-
-    if choice == nil or choice == #menuOptions then
-        gg.toast("Returning to performance menu")
-        return hpMenu()
-    end
-
-    applyHP(hpPresets[choice])
-    waitForGG()
+-- Lọc riêng trường Máu (100.0F) để chỉnh sửa
+gg.refineNumber("100.0", gg.TYPE_FLOAT)
+local results = gg.getResults(10)
+if #results > 0 then
+    gg.editAll("999999.0", gg.TYPE_FLOAT)
+    gg.toast("Đã kích hoạt Bất Tử Máu!")
+else
+    gg.toast("Không tìm thấy cấu trúc nhân vật!")
 end
-
-function applyHP(preset)
-    gg.alert("Buy Engine 3.0")
-    gg.sleep(15000)
-    gg.toast("Applying HP mod...")
-    gg.sleep(5000)
-
-    local searchValues = {240, 310, 6800, 4500}  -- HP, Torque, Inner HP, Inner Torque
-    local valueNames = {'HP', 'Torque', 'Inner HP', 'Inner Torque'}
-
-    for i = 1, 4 do
-        gg.setRanges(gg.REGION_ANONYMOUS)
-        gg.searchNumber(searchValues[i], gg.TYPE_FLOAT)
-        local results = gg.getResults(100)
-
-        if #results > 0 then
-            gg.editAll(preset[i], gg.TYPE_FLOAT)
-        else
-            gg.alert(valueNames[i] .. " values not found! Try again.")
-        end
-        gg.clearResults()
-    end
-
-    gg.alert("Click on Engine 3.0 then buy & set tires")
-    gg.sleep(6000)
-    gg.alert("HP adjustment complete!")
-    gg.toast("Return to presets menu")
-    waitForGG(hpMenu)
-end
+gg.clearResults()
 ```
 
-### 17. Custom HP Input Pattern
+### 4.2. Quét Tinh Chỉnh Qua Nhiều Bước (Search -> Refine -> Edit)
+Áp dụng khi người chơi có thể thay đổi số lượng trong game (tiêu tiền, bắn bớt đạn):
 
 ```lua
-function customHPInput()
-    gg.alert("Buy engine and remember torque add tire sound/pos")
-    gg.sleep(10000)
-
-    local input = gg.prompt({
-        'Current HP:', 'New HP:',
-        'Current Torque:', 'New Torque:',
-        'Current Inner HP:', 'New Inner HP:',
-        'Current Inner Torque:', 'New Inner Torque:'
-    }, {}, {'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'})
-
-    if not input then return end
-
-    local values = {
-        {input[1], input[2]},
-        {input[3], input[4]},
-        {input[5], input[6]},
-        {input[7], input[8]}
-    }
-
-    for i, v in ipairs(values) do
-        gg.setRanges(gg.REGION_ANONYMOUS)
-        gg.searchNumber(v[1], gg.TYPE_FLOAT)
-        local results = gg.getResults(100)
-
-        if #results > 0 then
-            gg.editAll(v[2], gg.TYPE_FLOAT)
-        else
-            gg.alert("Value not found! Try again.")
-        end
-        gg.clearResults()
-    end
-
-    gg.alert("HP adjustment complete!")
-    gg.sleep(6000)
-    gg.alert("Click on engine & buy tires")
-    gg.toast("Return to HP menu")
-    waitForGG(hpMenu)
-end
-```
-
-### 18. Shift Speed Pattern
-
-```lua
-function shiftSpeedMenu()
-    local choice = gg.choice({
-        "1E-25 💣",
-        "1E-26 💢",
-        "1E-27 💥",
-        "1E-28 🚀",
-        "1E-29 🥇",
-        "1E-30 🔥",
-        "1E-31 🏁",
-        "1E-32 🏆",
-        "1E-33 🏴‍☠️",
-        "1E-34 ⚡️",
-        "❌ Back to HP Menu"
-    }, nil, "Shift Speed Menu")
-
-    if choice == nil or choice == 11 then
-        gg.toast("Returning to HP menu")
-        return hpMenu()
-    end
-
-    -- Apply shift speed 1E-(24+choice)
-    local exponent = 24 + choice
-    gg.setRanges(gg.REGION_CODE_APP)
-    gg.alert("Buy fast gear")
-    gg.sleep(15000)
-    gg.setVisible(false)
-    gg.searchNumber("0.1", gg.TYPE_FLOAT)
-    local results = gg.getResults(250)
-
-    if #results > 0 then
-        gg.sleep(2000)
-        gg.editAll("1E-" .. exponent, gg.TYPE_FLOAT)
-        gg.alert("Shift speed applied! " .. exponent .. " zeros")
-    else
-        gg.alert("Shift speed values not found!")
-    end
-
+function hackCoinRefineFlow()
+    local p1 = gg.prompt({"Nhập số Coin ban đầu:"}, {"100"}, {"number"})
+    if not p1 then return end
+    
     gg.clearResults()
-    gg.toast("Return to shift speed menu")
-    waitForGG(hpMenu)
-end
-```
-
-### 19. Maintenance Menu Toggle Pattern
-
-```lua
-on = "      ⃢🔵"
-off = " 🔴⃢  "
-
-toggle_Y10 = false
-toggle_Y12 = false
-revert_Y10 = nil
-revert_Y12 = nil
-
-function maintenanceMenu()
-    local menu = gg.choice({
-        "💥 Y10 " .. (toggle_Y10 and off or on),
-        "💣 Y12 " .. (toggle_Y12 and off or on),
-        "❌ Back"
-    }, nil, "Car Maintenance Menu")
-
-    if menu == nil or menu == 3 then
-        return mainMenu()
-    end
-
-    if menu == 1 then toggleY10() end
-    if menu == 2 then toggleY12() end
-end
-```
-
-### 20. Coin Hack Pattern
-
-The coin hack follows a consistent pattern across both projects:
-
-1. Search for "500;100" as DWORD
-2. Get results
-3. Edit to "-2000000000" (large negative to bypass)
-4. Sleep/wait for user to buy item in-game
-5. Edit to specific coin value based on desired amount
-6. Clear results and return to menu
-
-**Coin amount edit values:**
-
-| Target Coins | Edit Value |
-|---|---|
-| 1 coin | -294966296 |
-| 10 coins | -294957296 |
-| 15 coins | -294952296 |
-| 20 coins | -294947296 |
-| 25 coins | -294942296 |
-| 30 coins | -294937296 |
-| 35 coins | -294932296 |
-| 40 coins | -294927296 |
-| 45 coins | -294922296 |
-| 50 coins | -294917296 |
-| 60 coins | -294907296 |
-| 70 coins | -294897296 |
-| 80 coins | -294887296 |
-| 90 coins | -294877296 |
-| 100 coins | -294867296 |
-| 150 coins | -294807296 |
-| 200 coins | -294767296 |
-| 250 coins | -294707296 |
-| 300 coins | -294667296 |
-| 400 coins | -294567296 |
-| 500 coins | -294467296 |
-
-Pattern: Each 50-coin increment changes the edit value by approximately 50,000.
-
-```lua
-function fiveHundred()
-    gg.alert("GO TO DRIVER EDIT MENU")
-    gg.sleep(15000)
-    gg.setVisible(false)
     gg.setRanges(gg.REGION_ANONYMOUS)
-    gg.sleep(15000)
-
-    gg.searchNumber("500;100", gg.TYPE_DWORD)
-    gg.sleep(2000)
-    local results = gg.getResults(50)
-
-    if #results > 0 then
-        gg.editAll("-2000000000", gg.TYPE_DWORD)
-        gg.sleep(2000)
-        gg.alert("Now go to animations and buy 2 with -$")
-        gg.sleep(6000)
-        gg.toast("✅ Coins hack applied!")
-        gg.alert("After buying both -$ wait in driver menu for final edit")
-        gg.editAll("-294467296", gg.TYPE_DWORD)
-        gg.sleep(3000)
-        gg.alert("Now go to animations and buy 1 with changed price")
-        gg.sleep(5000)
-        gg.clearResults()
-    else
-        gg.alert("No values found!")
-    end
-
-    gg.toast("Tap GG to return to coin menu")
-    waitForGG(coinMenu)
-end
-```
-
-### 21. Money Reset Pattern
-
-```lua
-function resetMoney()
-    gg.alert("GO TO CAR BUY LIST AND FIND CAR WITH UNBOUGHT BODY KIT")
-    gg.toast("You have 15 seconds......")
-    gg.sleep(15000)
-    gg.setRanges(gg.REGION_ANONYMOUS)
-
-    -- Step 1: Search first body kit price ($5,000)
-    gg.alert("FIND BODY KIT WORTH = $5,000")
-    gg.sleep(6000)
-    gg.searchNumber('5000', gg.TYPE_DWORD)
-    gg.getResults(100)
-    gg.sleep(4000)
-
-    -- Step 2: Search second body kit price ($10,000)
-    gg.alert("NOW ADD ANOTHER PART SO = $10,000")
-    gg.sleep(4000)
-    gg.searchNumber('10000', gg.TYPE_DWORD)
-    local results = gg.getResults(1)
-    gg.sleep(3000)
-
-    -- Step 3: Prompt for money and car price input
-    local input = gg.prompt(
-        {'Enter Current Money Value', 'Enter Car Price'},
-        {nil, nil},
-        {'number', 'number'}
-    )
-
-    if input and input[1] and input[2] then
-        local moneyValue = tonumber(input[1])
-        local carPrice = tonumber(input[2])
-
-        -- Step 4: Calculate and edit
-        if results and #results > 0 then
-            local editedValue = (moneyValue - carPrice) + (-5000)
-            results[1].value = editedValue
-            gg.setValues(results)
+    gg.searchNumber(p1[1], gg.TYPE_DWORD)
+    
+    local count = gg.getResultCount()
+    gg.alert("Đã tìm thấy " .. count .. " kết quả.\n\nHãy vào game, tiêu bớt hoặc kiếm thêm coin, sau đó nhấn OK để tiếp tục lọc.")
+    
+    local p2 = gg.prompt({"Nhập số Coin mới sau khi thay đổi:"}, {p1[1]}, {"number"})
+    if not p2 then return end
+    
+    gg.refineNumber(p2[1], gg.TYPE_DWORD)
+    local refinedCount = gg.getResultCount()
+    
+    if refinedCount > 0 and refinedCount <= 50 then
+        local p3 = gg.prompt({"Nhập số Coin bạn muốn đạt được:"}, {"999999"}, {"number"})
+        if p3 then
+            gg.editAll(p3[1], gg.TYPE_DWORD)
+            gg.toast("Hack Coin thành công!")
         end
-
-        gg.sleep(2000)
-        gg.alert("NOW FIND BODY KIT PART WITH NEW PRICE AND BUY CAR")
-        gg.sleep(5000)
-        gg.clearResults()
-        gg.toast('Money successfully reset')
-        gg.toast('Tap GG to return to currency menu')
-        waitForGG(currencyMenu)
     else
-        gg.alert('Invalid input. Please enter valid numbers.')
+        gg.alert("Số lượng kết quả còn lại: " .. refinedCount .. ".\nChưa đủ hẹp để ghi đè an toàn, hãy thử lại.")
     end
-end
-```
-
-### 22. Steering Angle Pattern
-
-```lua
-function applySteeringAngle(value)
-    gg.alert('Move steering angle to 60 then click GG to start')
-    gg.sleep(10000)
-    gg.searchNumber('60', gg.TYPE_FLOAT)
-    gg.getResults(100)
-
-    gg.alert('Move steering angle to 30')
-    gg.sleep(5000)
-    gg.searchNumber('30', gg.TYPE_FLOAT)
-    local results = gg.getResults(100)
-
-    if #results > 0 then
-        gg.editAll(tostring(value), gg.TYPE_FLOAT)
-        gg.toast('✅ Steering angle adjusted!')
-    else
-        gg.alert('❌ Steering values not found! Try again.')
-    end
-
-    gg.sleep(5000)
     gg.clearResults()
-    gg.toast('Click GG to return to suspension menu')
-    waitForGG(suspensionMenu)
 end
 ```
 
-### 23. Wait for GG Pattern
+### 4.3. Cơ Chế Toggle Bật/Tắt Khôi Phục Bộ Nhớ Gốc (Safe Restore)
+Để tránh làm hỏng game khi tắt tính năng, script cần lưu lại bản sao giá trị gốc trước khi ghi đè:
 
 ```lua
--- Version with callback
-function waitForGG(callback)
-    while not gg.isVisible() do
-        gg.sleep(100)
-    end
-    gg.setVisible(false)  -- Hide GG UI
-    if callback then
-        callback()  -- Return to the correct menu
-    end
-end
+local toggle_FlyHack = false
+local backup_FlyHack = nil
 
--- Simpler version
-function waitForGG()
-    gg.toast("Tap GG to continue...")
-    while true do
-        if gg.isVisible() then
-            gg.sleep(1000)
-            break
+function toggleFlyHack()
+    if toggle_FlyHack then
+        -- TẮT TÍNH NĂNG: Khôi phục lại chính xác các giá trị cũ
+        if backup_FlyHack and #backup_FlyHack > 0 then
+            gg.setValues(backup_FlyHack)
+            gg.toast("Tắt Fly Hack - Đã khôi phục trạng thái ban đầu!")
+        else
+            gg.toast("Không có dữ liệu khôi phục!")
         end
-        gg.sleep(100)
+        toggle_FlyHack = false
+    else
+        -- BẬT TÍNH NĂNG: Tìm kiếm, sao lưu rồi mới ghi đè
+        gg.clearResults()
+        gg.setRanges(gg.REGION_ANONYMOUS)
+        gg.searchNumber("4.5", gg.TYPE_FLOAT, false, gg.SIGN_EQUAL, 0, -1)
+        
+        local count = gg.getResultCount()
+        if count > 0 then
+            -- Lưu bản sao giá trị gốc trước khi edit
+            backup_FlyHack = gg.getResults(count)
+            gg.editAll("21.0", gg.TYPE_FLOAT)
+            toggle_FlyHack = true
+            gg.toast("Bật Fly Hack thành công! (x4.5 -> x21.0)")
+        else
+            gg.alert("Không tìm thấy giá trị trọng lực bay!")
+        end
+        gg.clearResults()
     end
 end
 ```
 
-### 24. Info/About Alert Pattern
+### 4.4. Đóng Băng Giá Trị (Value Freezing)
+Khóa cứng giá trị để game không thể trừ đạn hoặc máu:
 
 ```lua
-gg.alert([[
-₴₵Ɽł₱₮ ฿Ɏ _₵₱₥₂₳Ɽ₳₂Ɇ    
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀⣀⣀⣀⣀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢀⠀⣀⣠⣴⣾⡿⠟⢛⡿⠟⠛⠿⣯⡛⠉⠉⠛⠒⠀⠀
-⠀⠀⠀⣀⡤⠼⢛⣿⢿⣿⠟⠃⠀⠀⢸⡇⠀⠀⠀⠀⠻⡄⠀⠀⠀⠀⠀
-⠀⣠⣾⣭⣶⣶⣿⢱⠟⠁⠀⠀⠀⠀⠈⠻⠿⠛⠉⠉⠳⣽⠀⠀⠀⠀⠀
-⠞⠉⠀⠀⢠⡟⠃⠈⠀⠀⠀⠀⢀⣤⣶⣿⠇⠀⠀⠀⠀⡈⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⣽⣷⣦⣠⣀⣤⠴⠿⠿⠟⠋⠀⠀⠀⠀⣼⡏⠙⢿⣿⠶⠄
-⠀⠀⠀⠀⠀⢈⡿⠏⢹⢹⠀⠀⠀⠀⠀⠀⠀⠀⣀⣾⠏⠀⣰⡿⠁⠀⠀
-⠀⠀⠀⠀⠀⣾⠁⢀⡾⠀⣷⠀⠀⣀⡴⣶⠞⠛⣿⡀⠀⣰⡏⠁⠀⠀⠀
-⠀⠀⠀⠀⠀⢾⠀⠀⠀⠀⠀⣠⣞⠙⢁⣿⠀⠐⢿⡆⢠⣿⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠈⢷⣴⡶⠶⢿⡅⠉⠀⢀⡿⠀⠐⢾⡇⢰⣟⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠙⠀⠀⠀⠁⠀⡄⢠⡇⢠⣤⣾⠃⠘⣷⠀⠀⠀⠀⠀
-⠀     ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⣿⣿⠛⠛⠛⠀⠀⢹⣦⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠶⠶⠶⠟⠛⠉⠀⠀⠀⠀
-]])
-
-print("Script by: Ethan (github.com/ethanlabs101)")
-print("Version: 4.9.4")
+local results = gg.getResults(5)
+for i, item in ipairs(results) do
+    item.value = "999"
+    item.freeze = true
+    item.freezeType = gg.FREEZE_NORMAL -- hoặc gg.FREEZE_MAY_INCREASE, gg.FREEZE_MAY_DECREASE
+end
+gg.addListItems(results) -- Đưa vào danh sách Giữ giá trị (Saved List)
+gg.toast("Đã khóa giá trị vĩnh viễn!")
 ```
 
-### 25. Exit Pattern
+---
+
+## 5. Cơ Chế Bảo Vệ, Mã Hóa & Chống Dịch Ngược (Script Security & Obfuscation)
+
+Từ việc mổ xẻ `#1Gridpunk3v3.lua`, `AmongCapV1.lua` và script VIP của Anya, chúng ta thấy các modder chuyên nghiệp áp dụng 4 lớp bảo vệ:
+
+### 5.1. Lớp 1: Khóa Tên File & Khóa Phiên Bản Game
+Ngăn chặn người khác đổi tên script hoặc chạy trên bản game không tương thích:
 
 ```lua
--- With restore state
-function Exit()
-    gg.alert("Thank you for using my script!")
-    gg.skipRestoreState()
+local function verifyIntegrity()
+    -- 1. Kiểm tra tên file script
+    local currentFile = gg.getFile():match("[^/\\]+$")
+    if currentFile ~= "ExpectedScriptName.lua" then
+        gg.alert("Cảnh báo vi phạm bản quyền: Vui lòng không đổi tên script gốc!")
+        os.exit()
+    end
+
+    -- 2. Kiểm tra package và version của game
+    local info = gg.getTargetInfo()
+    if not info or info.packageName ~= "com.target.game" then
+        gg.alert("Tiến trình mục tiêu không chính xác!\nVui lòng chọn game đúng trước khi chạy.")
+        os.exit()
+    end
+end
+```
+
+### 5.2. Lớp 2: Mã Hóa Hex + Dịch Chuyển Byte (Caesar Shift Cipher) & Khóa Mật Khẩu
+Phương pháp giải mã động được phát hiện trong `#1Gridpunk3v3.lua`:
+
+```lua
+-- Hàm giải mã runtime bằng key mật khẩu
+function decodePayload(key, hexStr)
+    return (hexStr:gsub('..', function(h)
+        -- Thuật toán xoay vòng byte với password key
+        local byteVal = tonumber(h, 16)
+        local origByte = (byteVal + 256 - 13 - key) % 256
+        return string.char(origByte)
+    end))
+end
+
+-- Yêu cầu nhập mật khẩu bảo vệ
+local passInput = gg.prompt({"Nhập mã PIN kích hoạt:"}, {"0"}, {"number"})
+if not passInput then os.exit() end
+
+local key = tonumber(passInput[1])
+local payloadHex = "FE5A696257685D..." -- Chuỗi hex đã mã hóa
+
+-- Giải mã và thực thi an toàn bằng pcall
+local ok, err = pcall(function()
+    local luaCode = decodePayload(key, payloadHex)
+    local loadedFunc = assert(load(luaCode) or loadstring(luaCode))
+    loadedFunc()
+end)
+
+if not ok then
+    gg.alert("Sai mã PIN hoặc kịch bản đã bị sửa đổi trái phép!")
     os.exit()
 end
-
--- Simple exit
-gg.toast("Have a great day!")
-gg.sleep(2000)
-os.exit()
 ```
 
-### 26. GameGuardian Specific Functions Reference
+### 5.3. Lớp 3: Biên Dịch Sang Lua Bytecode Chuẩn (Lua 5.2 Luac)
+Như trong `AmongCapV1.lua` (`\027LuaR...`), mã nguồn Lua được biên dịch bằng trình biên dịch chuẩn `luac -s` (strip debug symbols) thành bytecode nhị phân để ẩn mã nguồn gốc mà GameGuardian vẫn nạp trực tiếp được.
 
-| Function | Description |
-|---|---|
-| `gg.searchNumber(value, type [, flag, sign, min, max, index])` | Search memory for value |
-| `gg.editAll(value, type)` | Modify ALL found values |
-| `gg.clearResults()` | Reset search state |
-| `gg.getResults(n)` | Get first n results (returns table) |
-| `gg.getResultCount()` | Get count of current results |
-| `gg.alert(message)` | Show information dialog |
-| `gg.toast(message)` | Show temporary notification |
-| `gg.prompt(fields)` | Get user input |
-| `gg.choice(list, [default], [prompt])` | Show selection menu |
-| `gg.multiChoice(list)` | Show multi-select menu |
-| `gg.getFile()` | Get current script filename |
-| `gg.sleep(milliseconds)` | Pause execution |
-| `gg.setRanges(type)` | Set memory search region |
-| `gg.getTargetInfo()` | Get game target info (version, label, etc.) |
-| `gg.getTargetPackage()` | Get target package name |
-| `gg.processResume()` | Resume game process |
-| `gg.processKill()` | Kill game process |
-| `gg.isVisible(bool)` | Check if GG is visible |
-| `gg.setVisible(bool)` | Show/hide GG UI |
-| `gg.gotoAddress(address)` | Jump to memory address |
-| `gg.setValues(table)` | Set values at addresses |
-| `gg.getValues(table)` | Get values at addresses |
-| `gg.addListItems(results)` | Add results to list |
-| `gg.removeListItems(items)` | Remove from list |
-| `gg.clearList()` | Clear list |
-| `gg.loadList(path, flags)` | Load list from file |
-| `gg.saveList()` | Save list to file |
-| `gg.skipRestoreState()` | Skip state restoration on exit |
-| `gg.refineNumber(value, type [, flag])` | Refine search results |
+### 5.4. Lớp 4: Máy Ảo Hóa (Lua Virtual Machine Obfuscation)
+Như trong `script-cau-ca-van-can-vip-by-anya.lua`, toàn bộ code logic được chuyển thành một bảng bytecode tùy biến và chạy qua một mini VM runtime. Đây là cấp độ bảo vệ chống crack cao nhất hiện nay.
 
-### 27. Key Lua Patterns Summary for GameGuardian Scripting
+---
 
-1. **Always start with version/name protection** if distributing scripts
-2. **Use while true loop for main menu** with gg.choice()
-3. **Set memory ranges before searching** (REGION_ANONYMOUS most common)
-4. **Search with proper type** (TYPE_DWORD for integers, TYPE_FLOAT for decimals)
-5. **Get results before editing** (gg.getResults(n))
-6. **Edit all found values** (gg.editAll(value, type))
-7. **Clear results after editing** (gg.clearResults())
-8. **Use toast for user feedback** (gg.toast("message"))
-9. **Use alert for important messages** (gg.alert("message"))
-10. **Wait for GG to be visible** before proceeding (while not gg.isVisible() loop)
-11. **Use gg.sleep() between operations** for stability (typically 100-5000ms)
-12. **Implement on/off toggles** with state variables
-13. **Use gg.prompt() for user input** when values need to be specified
-14. **Multi-region searches** combine regions with `|` (pipe)
-15. **Progressive refinement** with gg.refineNumber() for better results
-16. **Version/Update checks** before script execution
-17. **ASCII art/branding** in alerts for identity
-18. **Exit handling** with gg.skipRestoreState() and os.exit()
-19. **Menu nesting** with while loops for submenus
-20. **Return to main menu** pattern using waitForGG() or direct returns
-21. **Use gg.setVisible(false)** to hide GG during user interaction steps
-22. **Store original values** in variables for toggle restoration
-23. **Search-Edit-Clear cycle** is the core pattern for all mods
-24. **Large value offsets** (like -2949xxxxx for coins) are game-specific constants
-25. **Extensible menu structure** allows adding new mods without breaking existing ones
+## 6. Quy Tắc Lập Trình An Toàn & Chống Crash (Defensive Programming)
 
-These patterns form the foundation of most GameGuardian Lua scripts and can be combined/modified to create scripts for various games and modifications.
+1. **Luôn kiểm tra `nil` khi nhận kết quả từ `gg.prompt` hoặc `gg.choice`:**
+   Người dùng có thể nhấn phím Back trên điện thoại hoặc bấm nút Hủy. Nếu không kiểm tra `if not res then return end`, câu lệnh `res[1]` sẽ gây lỗi nghiêm trọng `attempt to index a nil value`.
+2. **Luôn kiểm tra số lượng kết quả trước khi `gg.editAll`:**
+   Nếu tìm kiếm ra 0 kết quả (`gg.getResultCount() == 0`), không được gọi `editAll` vì có thể gây crash hoặc thông báo lỗi khó chịu.
+3. **Giới hạn số lượng kết quả lấy về `gg.getResults(maxCount)`:**
+   Chỉ lấy từ 10 đến 500 kết quả thay vì lấy 100,000 kết quả. Lấy quá nhiều kết quả vào RAM sẽ khiến điện thoại bị đơ (Out Of Memory).
+4. **Luôn có `gg.clearResults()` trước khi bắt đầu tìm kiếm mới:**
+   Tránh trường hợp lệnh tìm kiếm tiếp theo vô tình trở thành lệnh `refine` trên tập kết quả cũ.
+5. **Thêm `gg.sleep()` vào các vòng lặp polling:**
+   Bất kỳ vòng lặp `while` nào cũng bắt buộc có `gg.sleep(50)` đến `gg.sleep(200)` để hệ điều hành Android thực hiện context switch, không bị Watchdog Killer tắt app.
